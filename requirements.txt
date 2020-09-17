@@ -4,7 +4,7 @@ cryptography==3.1
 dnspython==2.0.0
 Flask==1.1.2
 future==0.18.2
-#impacket==0.9.21 # install impacket from https://github.com/SecureAuthCorp/impacket/commit/64ce46580286b5ab15a4737bddf85201ce2adde3
+#impacket==0.9.21 https://github.com/SecureAuthCorp/impacket/commit/b867b21
 itsdangerous==1.1.0
 Jinja2==2.11.2
 ldap3==2.8

@@ -2,7 +2,7 @@
 
 Exploit code based on https://www.secura.com/blog/zero-logon and https://github.com/SecuraBV/CVE-2020-1472. Original research and scanner by Secura, modifications by RiskSense Inc.
 
-To exploit, clear out any previous Impacket installs you have and install Impacket from https://github.com/SecureAuthCorp/impacket/commit/64ce46580286b5ab15a4737bddf85201ce2adde3 or newer. Then, do:
+To exploit, clear out any previous Impacket installs you have and install Impacket from https://github.com/SecureAuthCorp/impacket/commit/b867b21 or newer. Then, do:
 
 ```
 python3 set_empty_pw DC_NETBIOS_NAME DC_IP_ADDR

